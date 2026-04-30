@@ -12,6 +12,7 @@ const uploadBtn = document.getElementById('upload-btn');
 const imagePreviewContainer = document.getElementById('image-preview-container');
 const imagePreview = document.getElementById('image-preview');
 const removeImageBtn = document.getElementById('remove-image-btn');
+const clearBtn = document.getElementById('clear-btn');
 
 let currentImageBase64 = null;
 let currentImageMimeType = null;
@@ -78,6 +79,25 @@ sendBtn.addEventListener('click', handleSend);
 chatInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
         handleSend();
+    }
+});
+
+clearBtn.addEventListener('click', () => {
+    if (confirm('Are you sure you want to clear the entire chat history?')) {
+        // Clear history array
+        conversationHistory = [];
+        
+        // Clear UI messages (keep only the first bot greeting)
+        const messages = chatMessages.querySelectorAll('.message');
+        for (let i = 1; i < messages.length; i++) {
+            messages[i].remove();
+        }
+        
+        // Clear image upload state
+        removeImageBtn.click();
+        
+        // Notification
+        console.log('Chat cleared');
     }
 });
 

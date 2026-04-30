@@ -145,6 +145,31 @@ header p {
     color: var(--text-main);
 }
 
+.clear-btn {
+    flex: 0 0 auto;
+    width: auto;
+    padding: 0.8rem 1rem;
+    cursor: pointer;
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--error);
+    border-color: rgba(239, 68, 68, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.clear-btn:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: var(--error);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+}
+
+.clear-btn:active {
+    transform: translateY(1px);
+}
+
 .glass-input {
     width: 100%;
     padding: 1rem 1.5rem;
