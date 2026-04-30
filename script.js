@@ -18,12 +18,12 @@ let currentImageBase64 = null;
 let currentImageMimeType = null;
 
 // System prompt for the AI persona
-const BASE_SYSTEM_PROMPT = "Act as ArtSync, an expert digital art director and friendly AI assistant. Your goal is to help users brainstorm highly creative, unique, and detailed prompts for digital illustrations. Discuss setting, subject, mood, and color palettes. Be conversational, encouraging, and human-like. Keep your responses relatively concise (under 150 words per message) and use markdown to format beautifully. Occasionally suggest that you can find a reference image for them.";
+const BASE_SYSTEM_PROMPT = "Act as ArtSync, a professional Digital Art Director. Your expertise is in digital illustration, concept art, and character design. When a user shares an idea, provide a detailed 'Art Direction' brief including: 1) Composition & Lighting, 2) Color Palette (with hex codes or descriptive names), and 3) Technical tips for digital software (layers, brushes). Be professional yet inspiring. Keep responses structured with markdown headers. Use bold text for key artistic terms.";
 
 // Maintain conversation history for Gemini API
 let conversationHistory = [];
 
-const searchTerms = ['landscape', 'portrait', 'abstract', 'modern', 'city', 'nature', 'future', 'surrealism'];
+const searchTerms = ['painting', 'sculpture', 'gold', 'mythology', 'landscape', 'armor', 'renaissance', 'impressionism', 'textile'];
 
 // --- Audio System ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -175,9 +175,10 @@ async function handleSend() {
 
         // 7. Decide if we should fetch a reference image
         const lowerRes = botResponseText.toLowerCase();
-        if (lowerRes.includes('reference') || lowerRes.includes('image') || Math.random() < 0.3) {
+        if (lowerRes.includes('reference') || lowerRes.includes('image') || Math.random() < 0.4) {
             showTyping();
-            const imageUrl = await fetchReferenceImage(text);
+            // Search based on what the AI just suggested, which is more descriptive
+            const imageUrl = await fetchReferenceImage(botResponseText);
             hideTyping();
             if (imageUrl) {
                 playReceiveSound();
@@ -345,34 +346,59 @@ async function fetchGeminiChat(apiKey, history, systemInstructionText, retryCoun
 
 async function fetchReferenceImage(contextStr = "") {
     try {
-        const words = contextStr.split(/[\s,.-]+/).filter(w => w.length > 4);
-        let term = searchTerms[Math.floor(Math.random() * searchTerms.length)];
+        // 1. Clean and tokenize the context string
+        // We look for nouns and artistic terms in the AI response
+        const words = contextStr.toLowerCase()
+            .replace(/[#*`]/g, '') // Remove markdown
+            .split(/[\s,.-]+/)
+            .filter(w => w.length > 5) // Prioritize longer, descriptive words
+            .filter(w => !['digital', 'illustration', 'direction', 'palette', 'lighting'].includes(w)); // Filter common UI words
         
+        // 2. Select a few candidate keywords
+        let keywords = [];
         if (words.length > 0) {
-            term = words[Math.floor(Math.random() * words.length)];
+            // Shuffle and pick 2-3 words
+            keywords = words.sort(() => 0.5 - Math.random()).slice(0, 2);
+        } else {
+            keywords = [searchTerms[Math.floor(Math.random() * searchTerms.length)]];
         }
 
-        const searchUrl = `https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&q=${term}`;
-        const searchRes = await fetch(searchUrl);
-        const searchData = await searchRes.json();
-        
-        if (searchData.objectIDs && searchData.objectIDs.length > 0) {
-            const randomId = searchData.objectIDs[Math.floor(Math.random() * Math.min(searchData.objectIDs.length, 50))];
-            const objectRes = await fetch(`https://collectionapi.metmuseum.org/public/collection/v1/objects/${randomId}`);
-            const objectData = await objectRes.json();
+        // 3. Try searching with keywords
+        for (const term of keywords) {
+            const searchUrl = `https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&q=${term}`;
+            const searchRes = await fetch(searchUrl);
+            const searchData = await searchRes.json();
             
-            if (objectData.primaryImageSmall || objectData.primaryImage) {
-                return objectData.primaryImageSmall || objectData.primaryImage;
+            if (searchData.objectIDs && searchData.objectIDs.length > 0) {
+                // Pick a random object from the top results
+                const count = Math.min(searchData.objectIDs.length, 40);
+                const randomId = searchData.objectIDs[Math.floor(Math.random() * count)];
+                
+                const objectRes = await fetch(`https://collectionapi.metmuseum.org/public/collection/v1/objects/${randomId}`);
+                const objectData = await objectRes.json();
+                
+                if (objectData.primaryImageSmall || objectData.primaryImage) {
+                    return objectData.primaryImageSmall || objectData.primaryImage;
+                }
             }
         }
         
-        if (words.length > 0) {
-            return fetchReferenceImage(""); 
+        // 4. Final Fallback: Search for a general artistic term if specific search fails
+        const fallbackTerm = searchTerms[Math.floor(Math.random() * searchTerms.length)];
+        const fbUrl = `https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&q=${fallbackTerm}`;
+        const fbRes = await fetch(fbUrl);
+        const fbData = await fbRes.json();
+        if (fbData.objectIDs && fbData.objectIDs.length > 0) {
+            const objRes = await fetch(`https://collectionapi.metmuseum.org/public/collection/v1/objects/${fbData.objectIDs[0]}`);
+            const objData = await objRes.json();
+            return objData.primaryImageSmall || objData.primaryImage;
         }
+
     } catch (error) {
-        console.warn('Primary image API failed', error);
+        console.warn('Image API failed', error);
     }
-    return `https://picsum.photos/600/400?random=${Math.random()}`;
+    // Last resort random art
+    return `https://picsum.photos/seed/${Math.random()}/600/400`;
 }
 
 function showTyping() { typingIndicator.classList.remove('hidden'); scrollToBottom(); }
